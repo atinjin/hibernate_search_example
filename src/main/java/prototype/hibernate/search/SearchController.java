@@ -20,8 +20,8 @@ public class SearchController {
     @RequestMapping(path = "/search", method = RequestMethod.GET)
     public List<Book> getBooks(String query) {
 
+        List result = fullTextSearch.search(query);
 
-
-        return null;
+        return result;
     }
 }
