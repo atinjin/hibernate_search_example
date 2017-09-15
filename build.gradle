@@ -32,6 +32,11 @@ dependencies {
 
     compile group: 'org.postgresql', name: 'postgresql', version: '42.1.4'
 
+	compile group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.9.1'
+	compile group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.9.1'
+	compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.1'
+    compile group: 'com.fasterxml.jackson.module', name: 'jackson-module-jaxb-annotations', version: '2.9.1'
+
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 	testCompile('org.springframework.restdocs:spring-restdocs-mockmvc')
 }

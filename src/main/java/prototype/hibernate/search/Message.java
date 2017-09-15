@@ -1,6 +1,7 @@
 package prototype.hibernate.search;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -9,9 +10,13 @@ import org.apache.lucene.analysis.snowball.SnowballPorterFilterFactory;
 import org.apache.lucene.analysis.standard.StandardTokenizerFactory;
 import org.hibernate.search.annotations.*;
 
-import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.PostPersist;
+import javax.persistence.Transient;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Date;
+import java.util.Map;
 
 @Entity
 @Indexed
@@ -84,15 +89,14 @@ public class Message implements Serializable {
     private String  userKeyword;
     @Field(index= org.hibernate.search.annotations.Index.YES, analyze= Analyze.YES, store= Store.NO)
     private String  userDescription;
+    private String relatedEvent;
 
-    @ElementCollection(fetch=FetchType.EAGER)
-    @CollectionTable(name = "ssm_log_message_related_event")
-    private List<String> relatedEvent = new ArrayList<>();
+    @JsonIgnore
+    @Field(index= org.hibernate.search.annotations.Index.YES, analyze= Analyze.YES, store= Store.NO)
+    private String metaInfo;
 
-    @ElementCollection(fetch=FetchType.EAGER)
-    @CollectionTable(name = "ssm_log_message_parameter")
-    private Map<String,String> parameter = new HashMap<>();
-
+    @Transient
+    private Map<String,String> parameter;
     @PostPersist
     private void postPersist() {
         this.registeredDateTime = new Date();
