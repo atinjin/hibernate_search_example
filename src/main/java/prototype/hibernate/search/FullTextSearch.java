@@ -9,44 +9,45 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.IntStream;
 
 @Component
 public class FullTextSearch {
 
     private final EntityManager entityManager;
-    private final BookRepository bookRepository;
 
     @Autowired
-    public FullTextSearch(EntityManager entityManager, BookRepository bookRepository) {
+    public FullTextSearch(EntityManager entityManager) {
         this.entityManager = entityManager;
-        this.bookRepository = bookRepository;
     }
 
     @PostConstruct
     public void start() {
-
+        reindexing();
     }
 
-    @Transactional
-    public void startFullTestSearch() {
-        try {
-            FullTextEntityManager fullTextSession = Search.getFullTextEntityManager(entityManager);
-            fullTextSession.createIndexer().startAndWait();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+    public List searchLog(String query) {
+        FullTextEntityManager fullTextEntityManager =
+                org.hibernate.search.jpa.Search.getFullTextEntityManager(entityManager);
+        QueryBuilder qb = fullTextEntityManager.getSearchFactory()
+                .buildQueryBuilder().forEntity(Message.class).get();
+        org.apache.lucene.search.Query luceneQuery = qb
+                .keyword().wildcard()
+                .onFields("sourceName", "sourceIpAddress", "sourcePName"
+                        , "sourceGroupName", "userId", "userKeyword", "userDescription")
+                .matching(query)
+                .createQuery();
+        javax.persistence.Query jpaQuery =
+                fullTextEntityManager.createFullTextQuery(luceneQuery, Message.class);
+
+        // execute search
+        return jpaQuery.getResultList();
     }
 
     public List search(String query) {
-
         FullTextEntityManager fullTextEntityManager =
                 org.hibernate.search.jpa.Search.getFullTextEntityManager(entityManager);
-//        entityManager.getTransaction().begin();
 
         // create native Lucene query unsing the query DSL
         // alternatively you can write the Lucene query using the Lucene query parser
@@ -66,10 +67,19 @@ public class FullTextSearch {
         // execute search
         List result = jpaQuery.getResultList();
 
-//        entityManager.getTransaction().commit();
-//        entityManager.close();
-
         return result;
+    }
+
+    public void reindexing() {
+        long now = System.currentTimeMillis();
+        System.out.println("Start indexing at "+ now);
+        try {
+            FullTextEntityManager fullTextSession = Search.getFullTextEntityManager(entityManager);
+            fullTextSession.createIndexer().startAndWait();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("End indexing during "+ (System.currentTimeMillis() - now) +"ms");
     }
 
 
@@ -80,21 +90,19 @@ public class FullTextSearch {
     @Component
     public class test implements CommandLineRunner {
 
-        private FullTextSearch fullTextSearch;
-        private BookRepository bookRepository;
-        private AuthorRepository authorRepository;
+        private final BookRepository bookRepository;
+        private final AuthorRepository authorRepository;
+        private final LogRepository logRepository;
 
         @Autowired
-        public test(FullTextSearch fullTextSearch, BookRepository bookRepository, AuthorRepository authorRepository) {
-            this.fullTextSearch = fullTextSearch;
+        public test(BookRepository bookRepository, AuthorRepository authorRepository, LogRepository logRepository) {
             this.bookRepository = bookRepository;
             this.authorRepository = authorRepository;
+            this.logRepository = logRepository;
         }
 
         @Override
         public void run(String... args) throws Exception {
-            fullTextSearch.startFullTestSearch();
-
             for (int i = 0; i < 200; i++) {
                 Set authors = new HashSet<Author>(){};
                 Author a = new Author();
@@ -111,6 +119,52 @@ public class FullTextSearch {
                 bookRepository.save(book);
             }
 
+            IntStream.range(0, 100).forEach(i -> {
+                Message log = getRandomEvent();
+                logRepository.save(log);
+            });
+        }
+
+        private Message getRandomEvent() {
+            Message log = new Message();
+
+            log.setGuid(UUID.randomUUID().toString());
+
+            //Log type
+            log.setLogType(4001);
+            log.setLogSubType(0);
+            log.setLogCategory(4000);
+            log.setLogExplanation("Motion detection");
+            log.setEventContext(Message.EventContext.occur);
+            log.setStatus(1);
+
+            //Time
+            log.setOccurrenceTime(System.currentTimeMillis());
+            log.setDetectionTime(System.currentTimeMillis());
+            log.setDetectionDateTime(new Date(log.getDetectionTime()));
+            log.setConfirmTime(0);
+            log.setConfirmDateTime(new Date(log.getConfirmTime()));
+
+            //Channel
+            log.setSourceUid(UUID.randomUUID().toString());
+            log.setSourceName(UUID.randomUUID().toString());
+            log.setSourcePid(UUID.randomUUID().toString());
+            log.setSourcePName(UUID.randomUUID().toString());
+            log.setSourceParentSystemUuid(UUID.randomUUID().toString());
+            log.setSourceSystemUuid(UUID.randomUUID().toString());
+            log.setSourceTypeName(UUID.randomUUID().toString());
+            log.setSourceIpAddress(UUID.randomUUID().toString());
+
+            //User
+            log.setUserUid(UUID.randomUUID().toString());
+            log.setUserId(UUID.randomUUID().toString());
+            log.setUserGroupUid(UUID.randomUUID().toString());
+            log.setUserKeyword(UUID.randomUUID().toString());
+            log.setUserDescription(UUID.randomUUID().toString());
+
+            log.getRelatedEvent().add(UUID.randomUUID().toString());
+
+            return log;
         }
     }
 }

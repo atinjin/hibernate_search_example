@@ -17,11 +17,21 @@ public class SearchController {
         this.fullTextSearch = fullTextSearch;
     }
 
+    @RequestMapping(path = "/search/log", method = RequestMethod.GET)
+    public List<Message> getLog(String query) {
+
+        return fullTextSearch.searchLog(query);
+    }
+
+    @RequestMapping(path = "/search/reindex", method = RequestMethod.PUT)
+    public void putReindexingLog() {
+
+        fullTextSearch.reindexing();
+    }
+
     @RequestMapping(path = "/search", method = RequestMethod.GET)
     public List<Book> getBooks(String query) {
 
-        List result = fullTextSearch.search(query);
-
-        return result;
+        return fullTextSearch.search(query);
     }
 }
